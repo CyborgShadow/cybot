@@ -75,7 +75,7 @@ func (bot *Bot) Connect() (conn net.Conn, err error) {
 
 func main() {
 	var config = ReadConfig()
-	fmt.Printf("%+v\n", config)
+	// fmt.Printf("%+v\n", config)
 
 	ircbot := NewBot()
 	conn, _ := ircbot.Connect()

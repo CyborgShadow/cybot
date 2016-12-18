@@ -11,3 +11,12 @@ I use a docker container with a prebuilt environment and lots of goodies to work
 To copy my dev repo, simply cd into the godev directory and run `./build.sh`, then `./run.sh`.
 You'll create the container and be placed into it!
 
+# Usage:
+
+Edit the twitch_credentials.toml.template file.
+Fill in the variables.
+Rename it to twitch_credentials.toml
+
+`go build bot.go`
+`./bot`
+

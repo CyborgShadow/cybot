@@ -16,7 +16,7 @@ You'll create the container and be placed into it!
 # Usage:
 
 Edit the twitch_credentials.toml.template file.  
-Fill in the variables. If you don't know how to get your twitch Oauth token, [go here](http://www.twitchapps.com/tmi/)  
+Fill in the variables. If you don't know how to get your twitch Oauth token, [go here!](http://www.twitchapps.com/tmi/)  
 Rename it to twitch_credentials.toml  
 
 `go build bot.go`  

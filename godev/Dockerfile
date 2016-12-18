@@ -95,6 +95,7 @@ RUN go version | grep $GOVERSION
 # Install required Libraries
 RUN go get -u github.com/stretchr/testify/assert
 RUN go get -u github.com/digitalocean/go-libvirt
+RUN go get -u github.com/BurntSushi/toml
 
 COPY vimrc /root/.vimrc
 RUN vim +PluginInstall +qall

@@ -15,10 +15,10 @@ You'll create the container and be placed into it!
 
 # Usage:
 
-Edit the twitch_credentials.toml.template file.
-Fill in the variables.
-Rename it to twitch_credentials.toml
+Edit the twitch_credentials.toml.template file.  
+Fill in the variables.  
+Rename it to twitch_credentials.toml  
 
-`go build bot.go`
-`./bot`
+`go build bot.go`  
+`./bot`  
 

@@ -20,8 +20,8 @@ type tomlConfig struct {
 }
 
 type credentials struct {
-	User string
-	Pass string
+	User    string
+	Pass    string
 	Channel string
 }
 
@@ -75,16 +75,16 @@ func (bot *Bot) Connect() (conn net.Conn, err error) {
 
 func main() {
 	var config = ReadConfig()
-  fmt.Printf("%+v\n", config)
+	fmt.Printf("%+v\n", config)
 
 	ircbot := NewBot()
 	conn, _ := ircbot.Connect()
-  fmt.Println("Sending password")
+	fmt.Println("Sending password")
 	conn.Write([]byte("PASS " + config.Credentials.Pass + "\r\n"))
-  conn.Write([]byte("NICK " + config.Credentials.User + "\r\n"))
-  fmt.Println("Joining Channel")
+	conn.Write([]byte("NICK " + config.Credentials.User + "\r\n"))
+	fmt.Println("Joining Channel")
 	conn.Write([]byte("JOIN #" + config.Credentials.Channel + "\r\n"))
-  defer conn.Close()
+	defer conn.Close()
 
 	tp := textproto.NewReader(bufio.NewReader(conn))
 
@@ -99,16 +99,16 @@ func main() {
 		msgParts := strings.Split(msg, " ")
 
 		var userInfo, action, channel, messageText string
-    userInfo, msgParts = msgParts[0], msgParts[1:]
+		userInfo, msgParts = msgParts[0], msgParts[1:]
 		action, msgParts = msgParts[0], msgParts[1:]
 		channel, msgParts = msgParts[0], msgParts[1:]
-   
+
 		if len(msgParts) > 0 {
 			messageText = strings.Join(msgParts, " ")
 			messageText = strings.TrimLeft(messageText, ":")
-    }
+		}
 
-    log.Printf("%+v\n", msg)
+		log.Printf("%+v\n", msg)
 
 		// if the msg contains PING you're required to
 		// respond with PONG else you get kicked
@@ -116,7 +116,7 @@ func main() {
 			conn.Write([]byte("PONG " + action))
 			continue
 		}
- 
+
 		// if msg contains PRIVMSG then respond
 		if action == "PRIVMSG" {
 			// echo back the same message

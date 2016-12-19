@@ -90,7 +90,7 @@ ENV GOPATH /go
 ENV HOME /root
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
 
-WORKDIR /go/src/github.com/cyborgshadow
+WORKDIR /go/src/github.com/cyborgshadow/cybot
 
 RUN go version | grep $GOVERSION
 

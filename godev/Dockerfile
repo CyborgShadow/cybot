@@ -96,6 +96,7 @@ RUN go version | grep $GOVERSION
 RUN go get -u github.com/BurntSushi/toml
 RUN go get -u github.com/cyborgshadow/cybot
 RUN go get -u github.com/inconshreveable/log15
+RUN git config --global core.editor vim
 
 COPY vimrc /root/.vimrc
 RUN vim +PluginInstall +qall

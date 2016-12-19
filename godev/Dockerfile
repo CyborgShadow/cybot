@@ -30,7 +30,9 @@ xz-utils \
 && git clone https://github.com/Valloric/YouCompleteMe.git /root/.vim/bundle/YouCompleteMe \
 && git clone https://github.com/cyborgshadow/misc-scripts.git /root/tmux --depth 1 \
 && cd /root/tmux \
-&& git checkout HEAD .tmux.conf \
+&& git checkout .tmux.conf \
+&& git checkout git_reset \
+&& mv git_reset /usr/local/bin/ \
 && mv .tmux.conf $HOME/ \
 && rm -rf /root/tmux \
 && cd /root/.vim/bundle/YouCompleteMe && git submodule update --init --recursive \

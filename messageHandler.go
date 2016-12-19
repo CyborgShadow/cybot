@@ -14,13 +14,13 @@ import (
 	"github.com/sorcix/irc"
 )
 
-// Bot implements an irc bot to be connected to a given server
+// Bot implements a twitch IRC bot
 type Bot struct {
 
 	// This is set if we have hijacked a connection
 	reconnecting bool
 	// Channel for user to read incoming messages
-	Incoming chan *Message
+	Incoming chan *TwitchMessage
 	con      net.Conn
 	outgoing chan string
 	triggers []Trigger
@@ -57,7 +57,7 @@ func (bot *Bot) String() string {
 func NewBot(host, nick string, pass string, options ...func(*Bot)) (*Bot, error) {
 	// Defaults are set here
 	bot := Bot{
-		Incoming:      make(chan *Message, 16),
+		Incoming:      make(chan *TwitchMessage, 16),
 		outgoing:      make(chan string, 16),
 		started:       time.Now(),
 		unixastr:      fmt.Sprintf("@%s-%s/bot", host, nick),
@@ -75,8 +75,8 @@ func NewBot(host, nick string, pass string, options ...func(*Bot)) (*Bot, error)
 	// Discard logs by default
 	bot.Logger = log.New("id", logext.RandId(8), "host", bot.Host, "nick", log.Lazy{bot.getNick})
 
-	bot.Logger.SetHandler(log.DiscardHandler()) // Use this one for prod pushes
-	bot.Logger.SetHandler(log.StdoutHandler)    // Use this one for debugging
+	bot.Logger.SetHandler(log.DiscardHandler())                               // Use this one for prod pushes
+	bot.Logger.SetHandler(log.Must.FileHandler("log.json", log.JsonFormat())) // Use this one for debugging
 	bot.AddTrigger(pingPong)
 	bot.AddTrigger(joinChannels)
 	return &bot, nil
@@ -104,8 +104,8 @@ func (bot *Bot) handleIncomingMessages() {
 	for scan.Scan() {
 		// Disconnect if we have seen absolutely nothing for 300 seconds
 		bot.con.SetDeadline(time.Now().Add(bot.PingTimeout))
-		msg := ParseMessage(scan.Text())
-		bot.Debug("Incoming", "msg.To", msg.To+"\r\n", "msg.From", msg.From+"\r\n", "msg.Params", msg.Params, "msg.Trailing", msg.Trailing)
+		msg := ParseTwitchMessage(scan.Text())
+		bot.Debug("Incoming", "msg.To", msg.Message.To, "msg.From", msg.Message.From, "msg.Params", msg.Message.Params, "msg.Trailing", msg.Message.Trailing)
 		for _, t := range bot.triggers {
 			if t.Condition(bot, msg) {
 				go t.Action(bot, msg)
@@ -138,6 +138,7 @@ func (bot *Bot) StandardRegistration() {
 	bot.Debug("Sending standard registration")
 	bot.sendUserCommand(bot.Nick, bot.Nick, "8")
 	bot.SetNick(bot.Nick)
+	bot.Send("CAP REQ :twitch.tv/tags")
 }
 
 // Set username, real name, and mode
@@ -189,7 +190,7 @@ func (bot *Bot) Run() {
 }
 
 // Reply sends a message to where the message came from (user or channel)
-func (bot *Bot) Reply(m *Message, text string) {
+func (bot *Bot) Reply(m *TwitchMessage, text string) {
 	var target string
 	if strings.Contains(m.To, "#") {
 		target = m.To
@@ -262,11 +263,11 @@ func (bot *Bot) AddTrigger(t Trigger) {
 // Trigger is used to subscribe and react to events on the bot Server
 type Trigger struct {
 	// Returns true if this trigger applies to the passed in message
-	Condition func(*Bot, *Message) bool
+	Condition func(*Bot, *TwitchMessage) bool
 
 	// The action to perform if Condition is true
 	// return true if the message was 'consumed'
-	Action func(*Bot, *Message) bool
+	Action func(*Bot, *TwitchMessage) bool
 }
 
 // A trigger to respond to the servers ping pong messages
@@ -274,20 +275,20 @@ type Trigger struct {
 // client has timed out and will close the connection.
 // Note: this is automatically added in the IrcCon constructor
 var pingPong = Trigger{
-	func(bot *Bot, m *Message) bool {
-		return m.Command == "PING"
+	func(bot *Bot, m *TwitchMessage) bool {
+		return m.Message.Command == "PING"
 	},
-	func(bot *Bot, m *Message) bool {
-		bot.Send("PONG :" + m.Content)
+	func(bot *Bot, m *TwitchMessage) bool {
+		bot.Send("PONG :" + m.Message.Content)
 		return true
 	},
 }
 
 var joinChannels = Trigger{
-	func(bot *Bot, m *Message) bool {
-		return m.Command == irc.RPL_WELCOME || m.Command == irc.RPL_ENDOFMOTD // 001 or 372
+	func(bot *Bot, m *TwitchMessage) bool {
+		return m.Message.Command == irc.RPL_WELCOME || m.Message.Command == irc.RPL_ENDOFMOTD // 001 or 372
 	},
-	func(bot *Bot, m *Message) bool {
+	func(bot *Bot, m *TwitchMessage) bool {
 		bot.didJoinChannels.Do(func() {
 			for _, channel := range bot.Channels {
 				splitchan := strings.SplitN(channel, ":", 2)
@@ -303,6 +304,10 @@ var joinChannels = Trigger{
 		})
 		return true
 	},
+}
+
+func Print(msg string) {
+	fmt.Println(msg)
 }
 
 func ReconOpt() func(*Bot) {
@@ -329,6 +334,89 @@ type Message struct {
 	From string
 }
 
+type TwitchMessage struct {
+	*Message
+	Badges      string
+	Color       string
+	DisplayName string
+	Emotes      string
+	Id          string
+	Mod         string
+	RoomId      string
+	SentTs      string
+	Subscriber  string
+	TmiSentTs   string
+	Turbo       string
+	UserId      string
+	UserType    string
+}
+
+// Twitch does funny things, so we built a class above it
+// This ingests all the t hings identified and sent back by Twitch Tags
+func ParseTwitchMessage(twitchRaw string) (tm *TwitchMessage) {
+	tm = new(TwitchMessage)
+	var raw string = ""
+	var hasTwitch bool = false
+
+	if strings.HasPrefix(twitchRaw, "@") {
+		hasTwitch = true
+		slicer := strings.SplitAfterN(twitchRaw, ":", 2)
+		twitchRaw = slicer[0]
+		twitchRaw = strings.TrimRight(twitchRaw, ":")
+
+		raw = ":" + slicer[1]
+		tm.Message = ParseMessage(raw)
+		// Do Twitch Specific code
+		s := strings.Split(twitchRaw, ";")
+
+		// Remove the declaration of what twitch items are
+		// For each item in range
+		// Get what's after the = sign
+		// Add that to the end of the slice
+		// Remove the original from the beginning of the slice
+		for _, st := range s {
+			st = strings.SplitAfterN(st, "=", 2)[1]
+			s = append(s, st)
+			s = s[1:]
+		}
+
+		tm.Badges, tm.Color, tm.DisplayName, tm.Emotes, tm.Id, tm.Mod, tm.RoomId, tm.SentTs, tm.Subscriber, tm.TmiSentTs, tm.Turbo, tm.UserId, tm.UserType = s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12]
+
+	} else {
+		raw = twitchRaw
+		tm.Message = ParseMessage(raw)
+	}
+
+	if !strings.HasPrefix(raw, "PING") {
+		if hasTwitch {
+			Print("Twitch Badges Are: " + tm.Badges)
+			Print("Twitch Color is: " + tm.Color)
+			Print("Twitch DisplayName is: " + tm.DisplayName)
+			Print("Twitch Emotes are: " + tm.Emotes)
+			Print("Twitch ID is: " + tm.Id)
+			Print("Twitch Mod is: " + tm.Mod)
+			Print("Twitch Room ID is: " + tm.RoomId)
+			Print("Twitch Sent Timestamp is: " + tm.SentTs)
+			Print("Twitch Turbo is: " + tm.Turbo)
+			Print("Twitch UserId is: " + tm.UserId)
+			Print("Twitch UserType is: " + tm.UserType)
+		}
+		Print("twitchRaw Message is: " + twitchRaw)
+		Print("Raw Message is: " + raw)
+		Print("To is : " + tm.Message.To)
+		Print("From is : " + tm.Message.From)
+		Print("Trailing is : " + tm.Message.Trailing)
+		Print("Content is : " + tm.Message.Content)
+		Print("name is : " + tm.Message.Prefix.Name)
+		Print("User is : " + tm.Message.Prefix.User)
+		Print("Host is : " + tm.Message.Prefix.Host)
+		Print("Command is : " + tm.Message.Command)
+		fmt.Println("Params are : ", tm.Message.Params)
+		Print("")
+	}
+	return tm
+}
+
 // ParseMessage takes a string and attempts to create a Message struct.
 // Returns nil if the Message is invalid.
 func ParseMessage(raw string) (m *Message) {
@@ -347,4 +435,5 @@ func ParseMessage(raw string) (m *Message) {
 	m.TimeStamp = time.Now()
 
 	return m
+
 }

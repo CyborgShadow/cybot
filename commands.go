@@ -37,7 +37,7 @@ var SayHello = Trigger{
 		return m.Command == "PRIVMSG" && strings.ToUpper(m.Trailing) == "HELLO"
 	},
 	func(irc *Bot, m *Message) bool {
-		irc.Reply(m, "Hello")
+		irc.Reply(m, "Hello "+m.From+" and welcome to the home of cyborgshadow!")
 		return false
 	},
 }

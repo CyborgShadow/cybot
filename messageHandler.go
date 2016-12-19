@@ -5,13 +5,13 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	log "github.com/inconshreveable/log15"
 	logext "github.com/inconshreveable/log15/ext"
-	"github.com/sorcix/irc"
 )
 
 // Bot implements an irc bot to be connected to a given server
@@ -104,8 +104,10 @@ func (bot *Bot) handleIncomingMessages() {
 	for scan.Scan() {
 		// Disconnect if we have seen absolutely nothing for 300 seconds
 		bot.con.SetDeadline(time.Now().Add(bot.PingTimeout))
+		//DEBUG ONLY - DELETE LATER
+		bot.Debug(scan.Text())
 		msg := ParseMessage(scan.Text())
-		bot.Debug("Incoming", "msg.To", msg.To, "msg.From", msg.From, "msg.Params", msg.Params, "msg.Trailing", msg.Trailing)
+		// bot.Debug("Incoming", "msg.To", msg.To, "msg.From", msg.From, "msg.Params", msg.Params, "msg.Trailing", msg.Trailing)
 		for _, t := range bot.triggers {
 			if t.Condition(bot, msg) {
 				go t.Action(bot, msg)
@@ -138,6 +140,7 @@ func (bot *Bot) StandardRegistration() {
 	bot.Debug("Sending standard registration")
 	bot.sendUserCommand(bot.Nick, bot.Nick, "8")
 	bot.SetNick(bot.Nick)
+	bot.Send("CAP REQ :twitch.tv/tags")
 }
 
 // Set username, real name, and mode
@@ -278,6 +281,7 @@ var pingPong = Trigger{
 		return m.Command == "PING"
 	},
 	func(bot *Bot, m *Message) bool {
+		fmt.Println("Return message is: PONG :" + m.Content)
 		bot.Send("PONG :" + m.Content)
 		return true
 	},
@@ -285,7 +289,7 @@ var pingPong = Trigger{
 
 var joinChannels = Trigger{
 	func(bot *Bot, m *Message) bool {
-		return m.Command == irc.RPL_WELCOME || m.Command == irc.RPL_ENDOFMOTD // 001 or 372
+		return m.Command == strconv.Itoa(001) || m.Command == strconv.Itoa(376) // 001 and 376 are irc's RPL_WELCOME and RPL_ENDMOTD
 	},
 	func(bot *Bot, m *Message) bool {
 		bot.didJoinChannels.Do(func() {
@@ -313,11 +317,20 @@ func ReconOpt() func(*Bot) {
 
 // Message represents a message received from the server
 type Message struct {
-	// irc.Message from sorcix
-	*irc.Message
 	// Content generally refers to the text of a PRIVMSG
 	Content string
 
+	// Command generated from the server
+	Command string
+
+	Params []string
+
+	Name string // Nick- or servername
+
+	User string //Username
+
+	Host     string // Hostname
+	Trailing string
 	//Time at which this message was recieved
 	TimeStamp time.Time
 
@@ -333,17 +346,74 @@ type Message struct {
 // Returns nil if the Message is invalid.
 func ParseMessage(raw string) (m *Message) {
 	m = new(Message)
-	m.Message = irc.ParseMessage(raw)
-	m.Content = m.Trailing
 
-	if len(m.Params) > 0 {
-		m.To = m.Params[0]
-	} else if m.Command == "JOIN" {
-		m.To = m.Trailing
+	// Cut up our message into the 3 slices - Command, Params, Trailing
+	var mSplice []string
+	cutRaw := raw
+
+	if strings.Count(cutRaw, ":") >= 2 {
+		for i := 0; i < 3; i++ {
+			fmt.Println("cutRaw is : " + cutRaw)
+
+			if i < 2 {
+				fmt.Println("Colon index is :" + strconv.Itoa(strings.Index(cutRaw, ":")))
+				fmt.Println("The string you want is: " + cutRaw[:strings.Index(cutRaw, ":")])
+				mSplice = append(mSplice, cutRaw[:strings.Index(cutRaw, ":")])
+				cutRaw = cutRaw[strings.Index(cutRaw, ":")+1:]
+
+			} else if i == 2 {
+				mSplice = append(mSplice, cutRaw)
+			}
+			fmt.Println("mSplice value is : " + mSplice[i])
+		}
 	}
-	if m.Prefix != nil {
-		m.From = m.Prefix.Name
+
+	//DEBUG ONLY - REMOVE THESE
+	fmt.Println("The raw message is: " + raw)
+	fmt.Println("The number of Splices is: " + strconv.Itoa(len(mSplice)))
+	fmt.Println("The slices are: %+v", mSplice)
+	fmt.Println("Splice part 1 is: " + mSplice[0])
+	fmt.Println("Splice part 2 is: " + mSplice[1])
+	fmt.Println("Splice part 3 is: " + mSplice[2])
+
+	commandSplice := strings.Split(mSplice[1], " ")
+
+	fmt.Println("commandSplcies are: %+v", commandSplice)
+	fmt.Println("Splice part 1 is: " + commandSplice[0])
+	fmt.Println("Splice part 2 is: " + commandSplice[1])
+	fmt.Println("Splice part 3 is: " + commandSplice[2])
+
+	if len(mSplice) == 3 {
+		m.From = commandSplice[0]
+		m.To = commandSplice[2]
+		m.Command = commandSplice[1]
+		m.Content = mSplice[2]
+
+	} else if len(mSplice) == 4 {
+		m.From = mSplice[0]
+		// m.Command = mSplice[1]
+		m.To = mSplice[2]
+		m.Content = mSplice[3]
 	}
+	//	if len(mSplice.Params) > 0 {
+	//		m.From = strings.TrimLeft(m.Params[0], ':')
+	//		m.To = m.Params[2]
+	//	}
+	// 	m.Content = m.Trailing
+
+	// DEBUG ONLY - REMOVE THESE
+	//fmt.Println("Name is: " + m.Message2.Prefix.Name)
+	fmt.Println("Content is: " + m.Content)
+	fmt.Println("To is: " + m.To)
+	fmt.Println("From is: " + m.From)
+	//	if len(m.Params) > 0 {
+	//		m.To = m.Params[0]
+	//	} else if m.Command == "JOIN" {
+	//		m.To = m.Trailing
+	//	}
+	//if m.Prefix != nil {
+	//	m.From = m.Prefix.Name
+	//}
 	m.TimeStamp = time.Now()
 
 	return m

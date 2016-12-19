@@ -1,6 +1,9 @@
 package main
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // Here's our sample trigger.
 // Copy this and use as a template whenever adding new commands.
@@ -31,12 +34,10 @@ var LongTrigger = Trigger{
 // This makes the bot say hello when you say hello.
 var SayHello = Trigger{
 	func(bot *Bot, m *Message) bool {
-		return m.Command == "PRIVMSG" && m.Trailing == "Hello"
+		return m.Command == "PRIVMSG" && strings.ToUpper(m.Trailing) == "HELLO"
 	},
 	func(irc *Bot, m *Message) bool {
-		if m.Trailing == "Hello" {
-			irc.Reply(m, "Hello")
-		}
+		irc.Reply(m, "Hello")
 		return false
 	},
 }

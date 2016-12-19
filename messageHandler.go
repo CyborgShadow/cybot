@@ -104,13 +104,8 @@ func (bot *Bot) handleIncomingMessages() {
 	for scan.Scan() {
 		// Disconnect if we have seen absolutely nothing for 300 seconds
 		bot.con.SetDeadline(time.Now().Add(bot.PingTimeout))
-<<<<<<< HEAD
 		msg := ParseTwitchMessage(scan.Text())
 		bot.Debug("Incoming", "msg.To", msg.Message.To, "msg.From", msg.Message.From, "msg.Params", msg.Message.Params, "msg.Trailing", msg.Message.Trailing)
-=======
-		msg := ParseMessage(scan.Text())
-		bot.Debug("Incoming", "msg.To", msg.To, "msg.From", msg.From, "msg.Params", msg.Params, "msg.Trailing", msg.Trailing)
->>>>>>> 2091ebe98664b8e1fbcf953fc5d5c17af52f908a
 		for _, t := range bot.triggers {
 			if t.Condition(bot, msg) {
 				go t.Action(bot, msg)

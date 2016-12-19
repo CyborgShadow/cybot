@@ -90,7 +90,7 @@ ENV GOPATH /go
 ENV HOME /root
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
 
-WORKDIR /go/src/github.com/cyborgshadow/cybot
+WORKDIR /go/src/github.com/cyborgshadow
 
 RUN go version | grep $GOVERSION
 
@@ -99,6 +99,8 @@ RUN go get -u github.com/BurntSushi/toml
 RUN go get -u github.com/cyborgshadow/cybot
 RUN go get -u github.com/inconshreveable/log15
 RUN git config --global core.editor vim
+
+WORKDIR /go/src/github.com/cyborgshadow/cybot
 
 COPY vimrc /root/.vimrc
 RUN vim +PluginInstall +qall

@@ -86,7 +86,7 @@ RUN curl -O https://storage.googleapis.com/golang/go$GOVERSION.linux-amd64.tar.g
 # Setup our GOPATH (used for Go coding)
 # Hardcode the homedir to /root
 # Add GOPATH to $PATH (needed for some things in Go)
-ENV GOPATH /go/
+ENV GOPATH /go
 ENV HOME /root
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
 

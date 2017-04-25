@@ -24,8 +24,7 @@ tmux \
 unzip \
 wget \
 xz-utils \
-&& rm -rf /var/lib/apt/lists/* \
-&& pip install ipython \
+&& rm -rf /var/lib/apt/lists/* \ 
 && git clone https://github.com/gmarik/Vundle.vim.git /root/.vim/bundle/Vundle.vim \
 && git clone https://github.com/Valloric/YouCompleteMe.git /root/.vim/bundle/YouCompleteMe \
 && git clone https://github.com/cyborgshadow/misc-scripts.git /root/tmux --depth 1 \
@@ -104,8 +103,7 @@ WORKDIR /go/src/github.com/cyborgshadow/cybot
 
 COPY vimrc /root/.vimrc
 RUN vim +PluginInstall +qall
-RUN vim +GoInstallBinaries +qall
-
+RUN vim -c "execute 'silent GoInstallBinaries' | execute 'quit'"
 CMD ["tmux", "-u2"]
 
 # To code in your local host, set your GOPATH ENV and run docker with docker run -itv $GOPATH/src:/go/src thisimage
